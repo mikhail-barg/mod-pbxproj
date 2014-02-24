@@ -381,7 +381,6 @@ class PBXProject(PBXType):
             capElement[icloudTag]['enabled'] = '1'
         
         for t in targets:
-            print t
             if t not in targetAttributes:
                targetAttributes[t] = PBXDict()
             targetAttributes[t]['DevelopmentTeam'] = teamId

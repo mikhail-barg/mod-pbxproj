@@ -45,3 +45,18 @@ If a modification you are trying to apply have already been applied to the proje
 The backup method saves a copy of the project file in its current state on disk.  This can be very useful if a modification leaves the project file unreadable.
 
 p.s. **NO WARRANTIES**
+
+Mikhail Barg:
+
+for adding entitlements:
+
+    project.add_file(entitmelementFilePath, parent='<group>', create_build_files = False);
+
+for codesign:
+
+    entitlementsFile = os.path.basename(entitmelementFilePath)
+    project.add_codesign_entitlements(entitlementsFile);
+
+for iCloud support:
+
+    add_icloud_attributes(teamId);

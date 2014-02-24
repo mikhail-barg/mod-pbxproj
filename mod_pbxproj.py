@@ -174,7 +174,8 @@ class PBXFileReference(PBXType):
         '.xib': ('file.xib', 'PBXResourcesBuildPhase'),
         '.strings': ('text.plist.strings', 'PBXResourcesBuildPhase'),
         '.bundle': ('wrapper.plug-in', 'PBXResourcesBuildPhase'),
-        '.dylib': ('compiled.mach-o.dylib', 'PBXFrameworksBuildPhase')
+        '.dylib': ('compiled.mach-o.dylib', 'PBXFrameworksBuildPhase'),
+        '.entitlements': ('text.xml', 'PBXGroup')
     }
 
     trees = [
@@ -352,11 +353,43 @@ class PBXGroup(PBXType):
 
 
 class PBXNativeTarget(PBXType):
-    pass
+    pass    
 
 
 class PBXProject(PBXType):
-    pass
+
+    def add_icloud_attributes(self, teamId):
+        modified = False
+        targets = self['targets']
+        
+        base1 = 'attributes'
+        base2 = 'TargetAttributes'
+        if base1 not in self:
+            self[base1] = PBXDict()
+        if base2 not in self[base1]:
+            self[base1][base2] = PBXDict()
+        targetAttributes = self[base1][base2]
+        
+        def addIcloudCapability(target):
+            capTag = 'SystemCapabilities'
+            if capTag not in target:
+               target[capTag] = PBXDict()
+            capElement = target[capTag]
+            icloudTag = 'com.apple.iCloud'
+            if icloudTag not in capElement:
+               capElement[icloudTag] = PBXDict()
+            capElement[icloudTag]['enabled'] = '1'
+        
+        for t in targets:
+            print t
+            if t not in targetAttributes:
+               targetAttributes[t] = PBXDict()
+            targetAttributes[t]['DevelopmentTeam'] = teamId
+            addIcloudCapability(targetAttributes[t])
+            
+        modified = True
+        return modified 
+
 
 
 class PBXContainerItemProxy(PBXType):
@@ -482,6 +515,18 @@ class XCBuildConfiguration(PBXType):
     def add_framework_search_paths(self, paths, recursive=True):
         return self.add_search_paths(paths, 'buildSettings', 'FRAMEWORK_SEARCH_PATHS', recursive=recursive)
 
+    def add_codesign_entitlements(self, fname):
+        modified = False
+        base = 'buildSettings'
+        key = 'CODE_SIGN_ENTITLEMENTS'
+        if base not in self:
+            self[base] = PBXDict()
+        		  
+        self[base][key] = fname
+        modified = True
+        return modified
+
+
     def add_other_cflags(self, flags):
         modified = False
 
@@ -587,6 +632,18 @@ class XcodeProject(PBXDict):
 
         for k, v in self.objects.iteritems():
             v.id = k
+            
+    def add_icloud_attributes(self, team):
+        projects = [p for p in self.objects.values() if p.get('isa') == 'PBXProject']
+        for p in projects:
+            if p.add_icloud_attributes(team):
+                self.modified = True
+    
+    def add_codesign_entitlements(self, fname):
+        build_configs = [b for b in self.objects.values() if b.get('isa') == 'XCBuildConfiguration']
+        for b in build_configs:
+            if b.add_codesign_entitlements(fname):
+                self.modified = True
 
     def add_other_cflags(self, flags):
         build_configs = [b for b in self.objects.values() if b.get('isa') == 'XCBuildConfiguration']
@@ -855,14 +912,12 @@ class XcodeProject(PBXDict):
 
         if os.path.isabs(f_path):
             abs_path = f_path
-
             if not os.path.exists(f_path):
                 return results
             elif tree == 'SOURCE_ROOT':
                 f_path = os.path.relpath(f_path, self.source_root)
             else:
                 tree = '<absolute>'
-
         if not parent:
             parent = self.root_group
         elif not isinstance(parent, PBXGroup):
@@ -1340,7 +1395,7 @@ class XcodeProject(PBXDict):
         if not os.path.isfile(XcodeProject.plutil_path):
             cls.plutil_path = 'plutil'
 
-        # load project by converting to xml and then convert that using plistlib
+        # load project by converting to xml and then convert that using plistlib 
         p = subprocess.Popen([XcodeProject.plutil_path, '-convert', 'xml1', '-o', '-', path], stdout=subprocess.PIPE)
         stdout, stderr = p.communicate()
 
